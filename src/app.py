@@ -44,7 +44,6 @@ def dashboard():
 
     total_articles = len(all_rows)
     
-    # עיבוד תקצירים לענן מילים
     summaries = []
     garbage_keys = ["persons", "companies", "audience", "stage", "keywords", "milestoneDate", "estimatedProjectEndLife", "location", "USBudget", "threeLineSummary", "potentialpartners", "budget", "companyDomain", "N/A", "null"]
     for row in all_rows:
@@ -58,7 +57,6 @@ def dashboard():
             summaries.append(clean_text)
     top_words = get_top_keywords(summaries, top_n=25)
 
-    # איסוף נתונים לגרפים
     days_counter = Counter()
     months_counter = Counter()
     sources_counter = Counter()
@@ -67,7 +65,6 @@ def dashboard():
     all_dates = []
 
     for row in all_rows:
-        # תאריכים
         for d_field in [row['actionDate'], row['creation_time']]:
             clean_d = parse_to_standard_date(d_field)
             if clean_d and clean_d <= TODAY:
@@ -76,28 +73,29 @@ def dashboard():
                 months_counter[clean_d[:7]] += 1
                 break
         
-        # מקורות
         link = row['link']
         if link and isinstance(link, str) and link.startswith('http'):
             try: sources_counter[urlparse(link).netloc.replace('www.', '')] += 1
             except: sources_counter['מקור כללי'] += 1
         else: sources_counter['מקור כללי'] += 1
         
-        # קטגוריות
         kw = row['keywords']
-        if kw and isinstance(kw, str) and kw != 'N/A':
+        if kw and isinstance(kw, str) and kw != 'N/A' and kw.strip() != '':
             if kw.startswith('['):
                 try:
                     for k in json.loads(kw): cat_counter[k] += 1
                 except: pass
             else: cat_counter[kw] += 1
             
-        # שפות/מיקום
         loc = row['location']
-        if loc and isinstance(loc, str) and loc != 'N/A': lang_counter[loc] += 1
+        if loc and isinstance(loc, str) and loc != 'N/A' and loc.strip() != '':
+            lang_counter[loc] += 1
 
     day_order = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
     all_dates.sort()
+
+    # כאן התיקון - מיון כרונולוגי של כל החודשים ללא חיתוך
+    sorted_months = sorted(months_counter.items())
 
     return render_template(
         'dashboard.html',
@@ -105,8 +103,8 @@ def dashboard():
         total_articles=int(total_articles),
         dates_labels=day_order,
         dates_values=[int(days_counter.get(day, 0)) for day in day_order],
-        trends_labels=[m[0] for m in sorted(months_counter.items())[-10:]],
-        trends_values=[int(m[1]) for m in sorted(months_counter.items())[-10:]],
+        trends_labels=[m[0] for m in sorted_months],
+        trends_values=[int(m[1]) for m in sorted_months],
         sources_labels=[s[0] for s in sources_counter.most_common(5)],
         sources_values=[s[1] for s in sources_counter.most_common(5)],
         cat_labels=[c[0] for c in cat_counter.most_common(5)],
