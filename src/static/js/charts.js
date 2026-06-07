@@ -23,6 +23,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { position: type === 'bar' || type === 'line' ? 'top' : 'bottom' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1, // מכריח קפיצות של 1 בלבד
+                            precision: 0 // מונע הצגת מספרים עשרוניים
+                        }
+                    }
                 }
             }
         });
@@ -35,13 +44,12 @@ document.addEventListener("DOMContentLoaded", () => {
         borderRadius: 6
     });
 
-    makeChart('articlesByDayChart', 'line', {
+    makeChart('articlesByDayChart', 'bar', {
         label: 'מאמרים שנאספו',
-        borderColor: '#e74c3c',
-        backgroundColor: 'rgba(231,76,60,0.15)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: 4
+        backgroundColor: 'rgba(231,76,60,0.6)',
+        borderColor: 'rgba(231,76,60,1)',
+        borderWidth: 1,
+        borderRadius: 4
     });
 
     makeChart('articlesByCategoryChart', 'doughnut', {

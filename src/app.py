@@ -2,7 +2,7 @@ import os
 import sqlite3
 import json
 import re
-from datetime import datetime  # הוספנו ייבוא של datetime
+from datetime import datetime
 from collections import Counter
 from urllib.parse import urlparse
 
@@ -13,12 +13,10 @@ from load_data import ensure_database_ready
 
 app = Flask(__name__)
 
-# הגדרת נתיב דינמי לקובץ בסיס הנתונים
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.abspath(os.path.join(BASE_DIR, '..', 'db', 'my_database.db'))
-TODAY = datetime.now().strftime('%Y-%m-%d') # משתנה עזר לתאריך של היום
+TODAY = datetime.now().strftime('%Y-%m-%d')
 
-# אתחול בסיס הנתונים לטעינת CSV בריצה ראשונה
 ensure_database_ready(db_path=DB_PATH)
 
 def get_db_connection():
@@ -36,11 +34,6 @@ def parse_to_standard_date(val):
         y, m, d = map(int, m1.groups())
         if 2000 <= y <= 2030 and 1 <= m <= 12 and 1 <= d <= 31:
             return f"{y}-{m:02d}-{d:02d}"
-    m2 = re.search(r'(\d{1,2})[-/](\d{1,2})[-/](\d{4})', s)
-    if m2:
-        d, m, y = map(int, m2.groups())
-        if 2000 <= y <= 2030 and 1 <= m <= 12 and 1 <= d <= 31:
-            return f"{y}-{m:02d}-{d:02d}"
     return None
 
 @app.route('/')
@@ -51,10 +44,9 @@ def dashboard():
 
     total_articles = len(all_rows)
     
-    # 1. עיבוד תקצירים לענן מילים
+    # עיבוד תקצירים לענן מילים
     summaries = []
     garbage_keys = ["persons", "companies", "audience", "stage", "keywords", "milestoneDate", "estimatedProjectEndLife", "location", "USBudget", "threeLineSummary", "potentialpartners", "budget", "companyDomain", "N/A", "null"]
-
     for row in all_rows:
         raw_summary = row['summary']
         if raw_summary and isinstance(raw_summary, str):
@@ -64,126 +56,80 @@ def dashboard():
                     clean_text = re.sub(r'"?' + key + r'"?\s*:?', ' ', clean_text, flags=re.IGNORECASE)
                 clean_text = re.sub(r'\[|\]|\{|\}', ' ', clean_text)
             summaries.append(clean_text)
-
     top_words = get_top_keywords(summaries, top_n=25)
 
-    # 2. חילוץ מקורות
-    sources_counter = Counter()
-    for row in all_rows:
-        link = row['link']
-        if link and isinstance(link, str) and link.startswith('http'):
-            try:
-                domain = urlparse(link).netloc.replace('www.', '')
-                if domain:
-                    sources_counter[domain] += 1
-                    continue
-            except Exception: pass
-        sources_counter['מקור כללי'] += 1
-
-    top_sources = sources_counter.most_common(5)
-    sources_labels = [s[0] for s in top_sources]
-    sources_values = [s[1] for s in top_sources]
-    
-    unique_sources = len([s for s in sources_counter if s != 'מקור כללי'])
-    if unique_sources == 0 and len(sources_counter) > 0: unique_sources = len(sources_counter)
-
-    # 3. חילוץ ונרמול תאריכים (עם סינון תאריכים עתידיים)
-    dates_counter = Counter()
+    # איסוף נתונים לגרפים
+    days_counter = Counter()
     months_counter = Counter()
-    
+    sources_counter = Counter()
+    cat_counter = Counter()
+    lang_counter = Counter()
+    all_dates = []
+
     for row in all_rows:
-        for date_field in [row['actionDate'], row['creation_time']]:
-            clean_d = parse_to_standard_date(date_field)
-            # הסינון מתבצע כאן: אם התאריך גדול מהיום, הוא לא נספר
+        # תאריכים
+        for d_field in [row['actionDate'], row['creation_time']]:
+            clean_d = parse_to_standard_date(d_field)
             if clean_d and clean_d <= TODAY:
-                dates_counter[clean_d] += 1
+                all_dates.append(clean_d)
+                days_counter[datetime.strptime(clean_d, '%Y-%m-%d').strftime('%A')] += 1
                 months_counter[clean_d[:7]] += 1
                 break
-
-    # מיון התאריכים המסוננים
-    all_sorted_dates = sorted(dates_counter.keys())
-    date_min = all_sorted_dates[0] if all_sorted_dates else 'לא זמין'
-    date_max = all_sorted_dates[-1] if all_sorted_dates else 'לא זמין'
-
-    sorted_dates_for_chart = sorted(dates_counter.items())[:10]
-    dates_labels = [d[0] for d in sorted_dates_for_chart]
-    dates_values = [d[1] for d in sorted_dates_for_chart]
-
-    sorted_months_for_chart = sorted(months_counter.items())[:10]
-    trends_labels = [m[0] for m in sorted_months_for_chart]
-    trends_values = [m[1] for m in sorted_months_for_chart]
-
-    # ... (שאר הקוד נשאר אותו דבר עבור קטגוריות ושפה)
-    # (המשכתי עם הפונקציות הקיימות שלך כדי לא ליצור שגיאות)
-    cat_counter = Counter()
-    for row in all_rows:
+        
+        # מקורות
+        link = row['link']
+        if link and isinstance(link, str) and link.startswith('http'):
+            try: sources_counter[urlparse(link).netloc.replace('www.', '')] += 1
+            except: sources_counter['מקור כללי'] += 1
+        else: sources_counter['מקור כללי'] += 1
+        
+        # קטגוריות
         kw = row['keywords']
-        if kw and isinstance(kw, str) and kw != 'N/A' and kw.strip() != '':
+        if kw and isinstance(kw, str) and kw != 'N/A':
             if kw.startswith('['):
                 try:
-                    kw_list = json.loads(kw)
-                    for k in kw_list: cat_counter[k] += 1
-                    continue
-                except Exception: pass
-            cat_counter[kw] += 1
-
-    top_cats = cat_counter.most_common(5)
-    cat_labels = [c[0] for c in top_cats]
-    cat_values = [c[1] for c in top_cats]
-
-    lang_counter = Counter()
-    for row in all_rows:
+                    for k in json.loads(kw): cat_counter[k] += 1
+                except: pass
+            else: cat_counter[kw] += 1
+            
+        # שפות/מיקום
         loc = row['location']
-        if loc and isinstance(loc, str) and loc != 'N/A' and loc.strip() != '':
-            lang_counter[loc] += 1
+        if loc and isinstance(loc, str) and loc != 'N/A': lang_counter[loc] += 1
 
-    top_langs = lang_counter.most_common(5)
-    lang_labels = [l[0] for l in top_langs]
-    lang_values = [l[1] for l in top_langs]
+    day_order = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    all_dates.sort()
 
     return render_template(
         'dashboard.html',
         top_words=top_words,
-        dates_labels=dates_labels,
-        dates_values=dates_values,
-        sources_labels=sources_labels,
-        sources_values=sources_values,
-        cat_labels=cat_labels,
-        cat_values=cat_values,
-        lang_labels=lang_labels,
-        lang_values=lang_values,
-        trends_labels=trends_labels,
-        trends_values=trends_values,
-        total_articles=total_articles,
-        unique_sources=unique_sources,
-        date_min=date_min,
-        date_max=date_max,
+        total_articles=int(total_articles),
+        dates_labels=day_order,
+        dates_values=[int(days_counter.get(day, 0)) for day in day_order],
+        trends_labels=[m[0] for m in sorted(months_counter.items())[-10:]],
+        trends_values=[int(m[1]) for m in sorted(months_counter.items())[-10:]],
+        sources_labels=[s[0] for s in sources_counter.most_common(5)],
+        sources_values=[s[1] for s in sources_counter.most_common(5)],
+        cat_labels=[c[0] for c in cat_counter.most_common(5)],
+        cat_values=[c[1] for c in cat_counter.most_common(5)],
+        lang_labels=[l[0] for l in lang_counter.most_common(5)],
+        lang_values=[l[1] for l in lang_counter.most_common(5)],
+        unique_sources=len([s for s in sources_counter if s != 'מקור כללי']),
+        date_min=all_dates[0] if all_dates else 'לא זמין',
+        date_max=all_dates[-1] if all_dates else 'לא זמין'
     )
 
 @app.route('/ask', methods=['POST'])
 def ask():
     data = request.get_json(silent=True) or {}
     question = (data.get('question') or '').strip()
-    if not question:
-        return jsonify({'error': 'לא סופקה שאלה'}), 400
-
-    mindsdb_url = os.getenv('MINDSDB_URL', 'http://127.0.0.1:47334')
-    agent_name = os.getenv('MINDSDB_AGENT_NAME', 'articles_agent')
-
+    if not question: return jsonify({'error': 'לא סופקה שאלה'}), 400
     try:
         import mindsdb_sdk
-        server = mindsdb_sdk.connect(mindsdb_url)
+        server = mindsdb_sdk.connect(os.getenv('MINDSDB_URL', 'http://127.0.0.1:47334'))
         safe_q = question.replace("'", "''")
-        result = server.query(f"SELECT answer FROM {agent_name} WHERE question = '{safe_q}';").fetch()
-
-        if result is not None and not result.empty:
-            answer = result['answer'].iloc[0]
-        else:
-            answer = 'לא התקבלה תשובה מהסוכן.'
-        return jsonify({'answer': str(answer)})
-    except Exception as exc:
-        return jsonify({'error': str(exc)}), 500
-
+        result = server.query(f"SELECT answer FROM {os.getenv('MINDSDB_AGENT_NAME', 'articles_agent')} WHERE question = '{safe_q}';").fetch()
+        return jsonify({'answer': str(result['answer'].iloc[0]) if result is not None and not result.empty else 'לא התקבלה תשובה'})
+    except Exception as exc: return jsonify({'error': str(exc)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
