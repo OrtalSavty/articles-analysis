@@ -1,0 +1,26 @@
+services:
+  # שירות הדשבורד
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    environment:
+      - FLASK_APP=src/app.py
+      - PYTHONUNBUFFERED=1
+      - MINDSDB_URL=http://mindsdb:47334
+      - MINDSDB_AGENT_NAME=${MINDSDB_AGENT_NAME:-articles_agent}
+    depends_on:
+      - mindsdb
+
+  # שירות MindsDB
+  mindsdb:
+    image: mindsdb/mindsdb:latest
+    restart: unless-stopped
+    ports:
+      - "47334:47334"
+    volumes:
+      - .:/root/mindsdb_data
+

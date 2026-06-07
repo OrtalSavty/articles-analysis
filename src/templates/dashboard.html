@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מערכת ניתוח מאמרים</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/cloud.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}" defer></script>
+</head>
+<body>
+
+<!-- ── Navbar ──────────────────────────────────────── -->
+<nav class="navbar">
+    <div class="navbar-brand">
+        <h1>מערכת ניתוח מאמרים</h1>
+        <span class="subtitle">ניתוח וויזואליזציה של מאמרי קוד פתוח</span>
+    </div>
+</nav>
+
+<!-- ── Stats Bar ────────────────────────────────────── -->
+<div class="stats-bar">
+    <div class="stat-card">
+        <span class="stat-value">{{ total_articles }}</span>
+        <span class="stat-label">סה״כ מאמרים</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ unique_sources }}</span>
+        <span class="stat-label">מקורות ייחודיים</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ date_min }}</span>
+        <span class="stat-label">תאריך ראשון</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value">{{ date_max }}</span>
+        <span class="stat-label">תאריך אחרון</span>
+    </div>
+</div>
+
+<!-- ── Dashboard Grid ───────────────────────────────── -->
+<div class="dashboard-grid">
+
+    <!-- Tag Cloud -->
+    <div class="card full-width">
+        <h3>ענן נושאים מרכזיים</h3>
+        <div id="tag-cloud" data-words='{{ top_words | tojson }}'></div>
+    </div>
+
+    <!-- Articles by Day -->
+    <div class="card">
+        <h3>מאמרים לפי יום</h3>
+        <div class="chart-container">
+            <canvas id="articlesByDayChart"
+                    data-labels='{{ dates_labels | tojson }}'
+                    data-values='{{ dates_values | tojson }}'></canvas>
+        </div>
+    </div>
+
+    <!-- Articles by Source -->
+    <div class="card">
+        <h3>מאמרים לפי מקור</h3>
+        <div class="chart-container">
+            <canvas id="articlesBySourceChart"
+                    data-labels='{{ sources_labels | tojson }}'
+                    data-values='{{ sources_values | tojson }}'></canvas>
+        </div>
+    </div>
+
+    <!-- Articles by Category -->
+    <div class="card">
+        <h3>התפלגות לפי קטגוריה</h3>
+        <div class="chart-container">
+            <canvas id="articlesByCategoryChart"
+                    data-labels='{{ cat_labels | tojson }}'
+                    data-values='{{ cat_values | tojson }}'></canvas>
+        </div>
+    </div>
+
+    <!-- Articles by Language -->
+    <div class="card">
+        <h3>מאמרים לפי שפה / מיקום</h3>
+        <div class="chart-container">
+            <canvas id="articlesByLanguageChart"
+                    data-labels='{{ lang_labels | tojson }}'
+                    data-values='{{ lang_values | tojson }}'></canvas>
+        </div>
+    </div>
+
+    <!-- Trends -->
+    <div class="card full-width">
+        <h3>מגמות איסוף לאורך זמן</h3>
+        <div class="chart-container">
+            <canvas id="trendsChart"
+                    data-labels='{{ trends_labels | tojson }}'
+                    data-values='{{ trends_values | tojson }}'></canvas>
+        </div>
+    </div>
+
+    <!-- AI Chat Panel -->
+    <div class="card full-width chat-card">
+        <h3>שאל את סוכן ה-AI</h3>
+        <div id="chat-history" class="chat-history">
+            <div class="chat-msg bot">
+                <span class="label">סוכן AI</span>
+                <div class="bubble">שלום! אני יכול לענות על שאלות לגבי אוסף המאמרים. נסה למשל: "כמה מאמרים נאספו?" או "מהם הנושאים המרכזיים?"</div>
+            </div>
+        </div>
+        <div class="chat-input-row">
+            <input id="chat-input" type="text" placeholder="הקלד שאלה…" autocomplete="off" />
+            <button id="chat-send">שלח</button>
+        </div>
+        <div id="chat-status" class="chat-status"></div>
+    </div>
+
+</div>
+</body>
+</html>

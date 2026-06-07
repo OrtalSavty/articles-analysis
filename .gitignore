@@ -1,0 +1,5 @@
+db/my_database.db
+.vscode/settings.json
+.venv/
+*.pyc
+.env
