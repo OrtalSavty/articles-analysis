@@ -1,45 +1,51 @@
 import re
 from collections import Counter
 
-# רשימה בסיסית של מילות קישור באנגלית (Stop Words)
+# רשימת מילות קישור ומילות "זבל" מורחבת (Stop Words)
+# רשימת מילות קישור ומילות "זבל" מורחבת (Stop Words)
 STOP_WORDS = {
+    # מילות קישור רגילות
     "the", "and", "is", "in", "to", "of", "a", "for", "on", 
     "with", "as", "by", "it", "that", "this", "at", "from", 
-    "an", "be", "are", "was", "or"
+    "an", "be", "are", "was", "or", "will", "has", "have", "not",
+    "can", "we", "you", "your", "our", "all", "which", "their", "its",
+    
+    # מילות זבל כלליות
+    "na", "nan", "null", "none", "http", "https", "www", "com", "companyname",
+    "more", "about", "read", "new", "how","name",
+    
+    # שאריות קוד (JSON) שזלגו מקובץ הנתונים שלנו
+    "companies","2026","name" "companyname", "companiescompanyname", "persons", "2025", "2024","2030",
+    "audience", "stage", "keywords", "location", "budget", "usbudget", "million", "announced", "interested", "",
+    "threelinesummary", "potentialpartners", "milestonedate", 
+    "estimatedprojectendlife", "companydomain", "contract", "awarded"
 }
-
 def clean_text(text):
-    # (CSV למקרה שיש ערכים חסרים ב) וידאו שהטקסט הוא אכן מחרוזת 
     if not isinstance(text, str):
         return []
 
-    #  נירמול: הפיכת הטקסט לאותיות קטנות
+    # הפיכה לאותיות קטנות
     text = text.lower()
     
-    #  הסרת סימני פיסוק - משאירים רק אותיות, מספרים ורווחים
+    # הסרת סימני פיסוק
     text = re.sub(r'[^\w\s]', '', text)
     
-    # פיצול למילים
     words = text.split()
     
-    # Stop Words סינון- שמירת המילים שאינן ברשימת ה
-    cleaned_words = [word for word in words if word not in STOP_WORDS]
+    # סינון מילים שקיימות ברשימה השחורה, וסינון אותיות בודדות/זוגות (כמו 'n', 'a')
+    cleaned_words = [
+        word for word in words 
+        if word not in STOP_WORDS and len(word) > 2
+    ]
     
     return cleaned_words
-
 
 def get_top_keywords(text_list, top_n=20):
     all_words = []
     
-    # מעבר על כל הטקסטים ברשימה
     for text in text_list:
-        # ניקוי הטקסט בעזרת הפונקציה הקודמת
         cleaned_words = clean_text(text)
-        # הוספת המילים הנקיות לרשימה הכללית
         all_words.extend(cleaned_words)
     
-    # חישוב השכיחות של כל מילה
     word_counts = Counter(all_words)
-    
-    #   המילים הנפוצות ביותר יחד עם מספר הפעמים שהן הופיעו
     return word_counts.most_common(top_n)
